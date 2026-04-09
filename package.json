@@ -1,0 +1,23 @@
+{
+  "name": "echo-inventory",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "infra",
+    "functions",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "serverless offline start",
+    "seed": "bash scripts/seed-local.sh",
+    "infra": "npm run --workspace=infra",
+    "functions": "npm run --workspace=functions",
+    "frontend": "npm run --workspace=frontend",
+    "frontend:dev": "npm run --workspace=frontend dev"
+  },
+  "devDependencies": {
+    "serverless": "^4",
+    "serverless-esbuild": "^1",
+    "serverless-offline": "^14"
+  }
+}
