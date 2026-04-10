@@ -1,24 +1,14 @@
-import { getAccessToken } from './auth';
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api/proxy${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+  });
 
-const IS_LOCAL = process.env.NODE_ENV === 'development';
-
-/**
- * All API calls go through /api/proxy/* (the Next.js reverse proxy route).
- * In local dev this hits serverless-offline; in production it hits API Gateway.
- */
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = await getAccessToken();
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${IS_LOCAL ? 'local-user-001' : token}` } : {}),
-    ...(options.headers ?? {}),
-  };
-
-  const res = await fetch(`/api/proxy${path}`, { ...options, headers });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return new Promise(() => {});  // suspend until redirect completes
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
@@ -27,8 +17,6 @@ async function request<T>(
 
   return res.json();
 }
-
-// ── Inventory ─────────────────────────────────────────────────────────────────
 
 export const api = {
   inventory: {
@@ -72,6 +60,9 @@ export const api = {
   orgs: {
     listPublic: () =>
       request<Org[]>('/public/orgs'),
+
+    listMine: () =>
+      request<UserOrg[]>('/orgs'),
   },
 
   image: {
@@ -82,58 +73,23 @@ export const api = {
       }),
 
     processPublic: (orgId: string, imageBase64: string, mimeType: string) =>
-      fetch(`/api/proxy/public/orgs/${orgId}/capture`, {
+      request<ProcessImageResult>(`/public/orgs/${orgId}/capture`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64, mimeType }),
-      }).then(r => r.json()) as Promise<ProcessImageResult>,
+      }),
   },
 };
 
-// ── Types (mirrors functions/shared/types.ts) ─────────────────────────────────
-
 export interface InventoryItem {
-  itemId: string;
-  orgId: string;
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-  aiIdentified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  itemId: string; orgId: string; name: string; category: string;
+  quantity: number; unit: string; brand?: string; notes?: string;
+  aiIdentified: boolean; createdAt: string; updatedAt: string;
 }
-
-export interface CreateItemInput {
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-}
-
-export interface UpdateItemInput {
-  name?: string;
-  category?: string;
-  quantity?: number;
-  unit?: string;
-  notes?: string;
-}
-
-export interface Member {
-  userId: string;
-  email: string;
-  role: 'owner' | 'member';
-  addedAt: string;
-}
-
-export interface Org {
-  orgId: string;
-  orgName: string;
-  createdAt: string;
-}
-
+export interface CreateItemInput { name: string; category: string; quantity: number; unit: string; brand?: string; notes?: string; }
+export interface UpdateItemInput { name?: string; category?: string; quantity?: number; unit?: string; brand?: string; notes?: string; }
+export interface Member { userId: string; email: string; role: 'owner' | 'member'; addedAt: string; }
+export interface Org { orgId: string; orgName: string; createdAt: string; }
+export interface UserOrg { orgId: string; orgName: string; role: 'owner' | 'member'; }
 export interface ProcessImageResult {
   updatedItems: Array<{ itemId: string; name: string; quantityDelta: number; newQuantity: number }>;
   createdItems: Array<{ itemId: string; name: string; quantity: number }>;

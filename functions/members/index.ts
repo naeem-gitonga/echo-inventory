@@ -13,7 +13,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     const method = event.requestContext.http.method;
     const params = event.pathParameters ?? {};
     const orgId  = params.orgId!;
-    const userId = params.userId;
+    const userId = params.userId ?? params.proxy;
 
     // Verify caller is a member of this org
     const membership = await getMembership(orgId, auth.userId);

@@ -5,12 +5,36 @@
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export AWS_ACCESS_KEY_ID=test
-export AWS_SECRET_ACCESS_KEY=test
-export AWS_DEFAULT_REGION=us-east-1
-AWS_LOCAL="aws --endpoint-url=http://localhost:4566 --region us-east-1"
+BACKUP_FILE="$ROOT/.localstack-backup.json"
+AWS_LOCAL="env AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localhost:4566 --region us-east-1"
 
 # ── Commands ──────────────────────────────────────────────────────────────────
+
+backup() {
+  $AWS_LOCAL dynamodb scan --table-name EchoInventory --output json > "$BACKUP_FILE" 2>/dev/null \
+    && echo "DynamoDB backed up ($(python3 -c "import json; print(json.load(open('$BACKUP_FILE'))['Count'])" 2>/dev/null) items)." \
+    || echo "Backup failed (LocalStack may not be running)."
+}
+
+restore() {
+  [[ ! -f "$BACKUP_FILE" ]] && return
+  local count
+  count=$(python3 -c "import json; print(json.load(open('$BACKUP_FILE'))['Count'])" 2>/dev/null)
+  [[ -z "$count" || "$count" -eq 0 ]] && return
+  echo "Restoring $count items from backup..."
+  python3 - "$BACKUP_FILE" << 'EOF'
+import json, subprocess, os, sys
+env = {**os.environ, 'AWS_ACCESS_KEY_ID': 'test', 'AWS_SECRET_ACCESS_KEY': 'test'}
+with open(sys.argv[1]) as f:
+    items = json.load(f).get('Items', [])
+for item in items:
+    subprocess.run([
+        'aws', '--endpoint-url=http://localhost:4566', '--region', 'us-east-1',
+        'dynamodb', 'put-item', '--table-name', 'EchoInventory', '--item', json.dumps(item)
+    ], env=env, capture_output=True)
+print(f'Restored {len(items)} items.')
+EOF
+}
 
 seed() {
   echo "Waiting for LocalStack..."
@@ -36,34 +60,42 @@ seed() {
         ],
         "Projection":{"ProjectionType":"ALL"}
       }
-    ]' 2>/dev/null && echo "DynamoDB table created." || echo "DynamoDB table already exists."
+    ]' --output text &>/dev/null && echo "DynamoDB table created." || echo "DynamoDB table already exists."
 
   $AWS_LOCAL s3 mb s3://echo-inventory-images-local 2>/dev/null \
     && echo "S3 bucket created." || echo "S3 bucket already exists."
+
+  restore
 }
 
 start() {
-  echo "Starting LocalStack..."
-  docker compose -f "$ROOT/docker-compose.yml" up -d
-
-  seed
-
-  echo ""
-  echo "Starting API (serverless-offline :3001)..."
-  cd "$ROOT" && npx serverless offline start &
-  SLS_PID=$!
-
-  echo "Starting frontend (Next.js :3000)..."
-  npm run frontend:dev &
-  NEXT_PID=$!
-
   cleanup() {
     echo ""
+    echo "Backing up DynamoDB..."
+    backup
     echo "Shutting down..."
     kill $SLS_PID $NEXT_PID 2>/dev/null
     docker compose -f "$ROOT/docker-compose.yml" stop
   }
   trap cleanup SIGINT SIGTERM
+
+  echo "Starting LocalStack..."
+  docker compose -f "$ROOT/docker-compose.yml" up -d
+
+  echo "Starting API (serverless-offline :3001)..."
+  cd "$ROOT" && AWS_PROFILE=naeem npx serverless offline start &
+  SLS_PID=$!
+
+  # Seed LocalStack in parallel — doesn't depend on the API or frontend
+  seed &
+
+  # Wait for serverless-offline before starting the frontend so the
+  # browser doesn't fire requests into a not-yet-bound port
+  until nc -z localhost 3001 2>/dev/null; do sleep 0.3; done
+
+  echo "Starting frontend (Next.js :3000)..."
+  npm run frontend:dev &
+  NEXT_PID=$!
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -76,11 +108,41 @@ start() {
   wait
 }
 
+down() {
+  echo "Backing up DynamoDB..."
+  backup
+
+  echo "Stopping processes..."
+  lsof -ti tcp:3000 | xargs kill -9 2>/dev/null || true
+  lsof -ti tcp:3001 | xargs kill -9 2>/dev/null || true
+  lsof -ti tcp:3002 | xargs kill -9 2>/dev/null || true
+
+  echo "Stopping containers..."
+  docker compose -f "$ROOT/docker-compose.yml" stop
+
+  echo "Done."
+}
+
+frontend() {
+  echo "Restarting frontend..."
+  lsof -ti tcp:3000 | xargs kill -9 2>/dev/null || true
+  sleep 1
+  npm run frontend:dev &
+  echo "Frontend restarted → http://localhost:3000"
+}
+
+restart() {
+  echo "Restarting LocalStack..."
+  docker compose -f "$ROOT/docker-compose.yml" restart localstack
+  seed
+  echo "LocalStack restarted and seeded."
+}
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
 if [[ -z "$1" ]]; then
   echo "Usage: ./scripts <command>"
-  echo "Commands: start, seed"
+  echo "Commands: start, down, seed, restart, frontend, backup, restore"
   exit 1
 fi
 

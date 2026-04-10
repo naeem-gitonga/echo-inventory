@@ -9,8 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@aws-amplify/auth": "^6.19.1",
-    "aws-amplify": "^6.16.3",
     "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -21,6 +19,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "sass": "^1.99.0",
     "typescript": "^5"
   }
 }

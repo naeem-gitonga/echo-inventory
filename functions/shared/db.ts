@@ -9,8 +9,9 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { OrgMember } from './types';
 
-// AWS_ENDPOINT_URL is set in serverless.yml for local dev → SDK picks it up automatically
-const client    = new DynamoDBClient({});
+const client    = new DynamoDBClient(
+  process.env.LOCALSTACK_ENDPOINT ? { endpoint: process.env.LOCALSTACK_ENDPOINT } : {}
+);
 export const docClient  = DynamoDBDocumentClient.from(client);
 export const TABLE_NAME = process.env.TABLE_NAME!;
 

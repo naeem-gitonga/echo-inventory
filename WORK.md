@@ -71,6 +71,49 @@
 
 ---
 
+## 2026-04-09 / Session 2
+
+### Bug Fixes
+
+- **Proxy `content-encoding` stripping** — serverless-offline/Hapi compresses responses above ~1KB. Node's `fetch` decompresses automatically but the proxy was still forwarding the `Content-Encoding: gzip` header, causing `ERR_CONTENT_DECODING_FAILED` in the browser after 3+ inventory items. Fixed by dropping `content-encoding` in the generic proxy passthrough.
+- **ECONNREFUSED on startup** — Next.js was starting before serverless-offline was bound to port 3001, causing the browser to fire API requests into nothing. Fixed in two ways: (1) proxy now catches connection errors and returns 503 instead of crashing, (2) `./scripts start` now waits for port 3001 to accept connections before starting Next.js.
+- **`{proxy+}` path parameter mismatch** — serverless.yml uses `{proxy+}` as the catch-all path segment for inventory and member sub-routes. API Gateway puts the captured value in `params.proxy`, not `params.itemId` or `params.userId`. The Lambda was looking up the wrong key so DELETE and member removal always returned 404. Fixed with `params.itemId ?? params.proxy` and `params.userId ?? params.proxy` in the respective Lambdas.
+- **LocalStack credentials leaking into Bedrock** — `./scripts` was exporting `AWS_ACCESS_KEY_ID=test` and `AWS_SECRET_ACCESS_KEY=test` globally, which overrode the real `naeem` profile credentials for all child processes including serverless-offline. Bedrock calls were rejected with `UnrecognizedClientException`. Fixed by scoping fake credentials to the LocalStack CLI alias only (`env AWS_ACCESS_KEY_ID=test ... aws ...`) and setting `AWS_PROFILE=naeem` explicitly when starting serverless-offline.
+- **Mock response blocking Bedrock** — `processImage` had an early return for `IS_LOCAL=true` that always returned a fake item. Bedrock is real AWS and works from local. Removed the mock.
+
+### Features
+
+- **Brand field** — added `brand` (optional) to `InventoryItem`, `CreateItemInput`, `UpdateItemInput`, the Add Item form, and the Edit Item form.
+- **Full item edit page** — replaced inline quantity-only editing with a dedicated `/inventory/[itemId]/edit` page that pre-fills and patches all fields: name, brand, category, quantity, unit, notes.
+- **Delete confirmation modal** — replaced `window.confirm()` with a custom modal (overlay + card + Cancel/Delete buttons) in `InventoryList`.
+- **Camera capture** — replaced `<input capture="environment">` (which skips the picker on mobile and does nothing on desktop) with `getUserMedia({ video: { facingMode: 'environment' } })`. Clicking "Take photo" triggers the browser permission prompt, then shows a live video preview with a Capture button. "Choose from library" still opens the file picker. Implemented in both `CaptureView` (authenticated) and `PublicCapture` (anonymous).
+- **Image preview** — after capturing via camera or file picker, the image is shown during the "Analyzing…" state and on the results screen.
+- **Public capture AI prompt** — the anonymous pantry flow now tells the AI the user is *taking* items, so it uses negative `quantity_delta` values. The authenticated flow prompt is unchanged (add or remove based on context).
+- **Inventory context in AI prompt** — the current org inventory (names, quantities, units) is fetched before calling Bedrock and injected into the system prompt so the AI matches exact item names rather than inventing new ones. Plan to replace this with a `get_inventory` tool call as inventory grows.
+
+### Local Dev Improvements
+
+- **`./scripts start` startup order** — LocalStack, serverless-offline, and Next.js now start in the correct sequence: LocalStack → serverless-offline (wait for port 3001) → Next.js. LocalStack seeding runs in parallel and doesn't block the other processes.
+- **Automatic DynamoDB backup/restore** — `./scripts start` restores from `.localstack-backup.json` after seeding on every startup. Ctrl+C triggers an automatic backup before stopping LocalStack. The backup file is gitignored.
+- **`AWS_PROFILE=naeem`** — added to `.env` (auto-loaded by Serverless Framework) so the correct AWS profile is always used for Bedrock and Cognito without having to set it manually.
+- **Select font size** — added `font-size: 1rem !important` to `<select>` inputs in AddItemForm and EditItemForm to override iOS Safari's system default which was rendering category/unit dropdowns too small on mobile.
+
+### Architecture Notes
+
+- The `{proxy+}` pattern in serverless.yml is correct for routing but all Lambdas using sub-resource routes must read `params.proxy` as the fallback for named path params.
+
+### TODO
+
+- **`get_inventory` Bedrock tool** — the current approach dumps the entire inventory as text into the system prompt on every image capture. This works for small inventories but gets unwieldy at 100+ items and will eventually hit token limits. The right fix is a `get_inventory` tool that the AI can call mid-conversation with a search term. Flow:
+  1. AI receives the image
+  2. AI calls `get_inventory` with a search term (e.g. "pinto beans")
+  3. Lambda queries DynamoDB and returns matching items
+  4. AI sees the exact names and quantities, then calls `update_inventory` with the correct name and delta
+
+  This scales indefinitely — the AI only fetches what's relevant to the photo and the system prompt stays lean.
+
+---
+
 ## Where We Are
 
 The backend is fully written and the local dev environment is configured. The frontend foundation (auth, API client, proxy route, middleware) is in place. No pages exist yet beyond the Next.js default.

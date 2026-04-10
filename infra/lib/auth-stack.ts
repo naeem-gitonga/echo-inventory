@@ -20,8 +20,10 @@ export class AuthStack extends cdk.Stack {
 
     const { table } = props;
 
-    // Orgs Lambda — handles Cognito post-confirmation trigger + API routes
-    this.orgsLambda = new lambdaNodejs.NodejsFunction(this, 'OrgsFunction', {
+    // Separate Lambda for the Cognito post-confirmation trigger.
+    // Must NOT reference UserPool or UserPoolClient — that would create a circular
+    // dependency (UserPool → trigger fn → UserPool).
+    const postConfirmationFn = new lambdaNodejs.NodejsFunction(this, 'PostConfirmationFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
       entry: path.join(__dirname, '..', '..', 'functions', 'orgs', 'index.ts'),
@@ -34,7 +36,7 @@ export class AuthStack extends cdk.Stack {
       bundling: { minify: true, externalModules: [] },
     });
 
-    table.grantReadWriteData(this.orgsLambda);
+    table.grantReadWriteData(postConfirmationFn);
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: 'echo-inventory-user-pool',
@@ -52,8 +54,19 @@ export class AuthStack extends cdk.Stack {
         requireSymbols: false,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      userVerification: {
+        emailSubject: 'Verify your Echo Inventory account',
+        emailBody: `
+<p>Hi there,</p>
+<p>Thanks for signing up for <strong>Echo Inventory</strong>.</p>
+<p>Your verification code is: <strong>{####}</strong></p>
+<p>Enter this code to activate your account and start managing your inventory.</p>
+<p>— The Echo Inventory Team</p>
+        `.trim(),
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+      },
       lambdaTriggers: {
-        postConfirmation: this.orgsLambda,
+        postConfirmation: postConfirmationFn,
       },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -68,12 +81,28 @@ export class AuthStack extends cdk.Stack {
       preventUserExistenceErrors: true,
       accessTokenValidity: cdk.Duration.hours(1),
       refreshTokenValidity: cdk.Duration.days(30),
-      writeAttributes: new cognito.ClientAttributes().withCustomAttributes('orgName'),
+      writeAttributes: new cognito.ClientAttributes()
+        .withStandardAttributes({ email: true })
+        .withCustomAttributes('orgName'),
     });
 
-    // Add pool IDs after both resources exist (CDK resolves tokens at synth time)
-    this.orgsLambda.addEnvironment('USER_POOL_ID', this.userPool.userPoolId);
-    this.orgsLambda.addEnvironment('USER_POOL_CLIENT_ID', this.userPoolClient.userPoolClientId);
+    // API-facing orgs Lambda — no circular dependency since it is not a Cognito trigger
+    this.orgsLambda = new lambdaNodejs.NodejsFunction(this, 'OrgsFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      entry: path.join(__dirname, '..', '..', 'functions', 'orgs', 'index.ts'),
+      handler: 'handler',
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        TABLE_NAME: table.tableName,
+        USER_POOL_ID: this.userPool.userPoolId,
+        USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
+      },
+      bundling: { minify: true, externalModules: [] },
+    });
+
+    table.grantReadWriteData(this.orgsLambda);
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
