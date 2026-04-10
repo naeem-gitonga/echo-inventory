@@ -1,0 +1,102 @@
+.page {
+  min-height: 100vh;
+  background: #fff;
+  color-scheme: light;
+  color: #111;
+}
+
+.header {
+  padding: 2rem 1.5rem 1.5rem;
+  text-align: center;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border-bottom: 1px solid #ffe8d6;
+}
+
+.title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #111;
+}
+
+.subtitle {
+  margin-top: 0.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.empty {
+  color: #6b7280;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.orgCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border: 2px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+  text-decoration: none;
+  color: #111;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: #f97316;
+    background: #ffedd5;
+  }
+}
+
+.orgName {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #111;
+}
+
+.arrow {
+  color: #f97316;
+  font-size: 1.1rem;
+}
+
+.loginHint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+
+  a {
+    color: #f97316;
+    font-weight: 600;
+  }
+}
+
+.center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color-scheme: light;
+}
