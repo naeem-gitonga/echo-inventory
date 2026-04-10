@@ -10,7 +10,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     const method = event.requestContext.http.method;
     const params = event.pathParameters ?? {};
     const orgId  = params.orgId!;
-    const itemId = params.itemId;
+    const itemId = params.itemId ?? params.proxy;
 
     // Verify caller is a member of this org
     const membership = await getMembership(orgId, auth.userId);
@@ -63,6 +63,7 @@ async function createItem(orgId: string, userId: string, body: string | null | u
     category: input.category,
     quantity: input.quantity,
     unit:     input.unit,
+    brand:    input.brand,
     notes:    input.notes,
     aiIdentified: false,
     createdAt: now,
@@ -84,13 +85,15 @@ async function updateItem(orgId: string, itemId: string, body: string | null | u
   if (!existing.Item) return errorResponse(404, 'Item not found');
 
   const updates: string[] = [];
+  const names: Record<string, string>  = {};
   const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
 
-  if (input.name     !== undefined) { updates.push('name = :name');         values[':name']     = input.name; }
-  if (input.category !== undefined) { updates.push('category = :category'); values[':category'] = input.category; }
-  if (input.quantity !== undefined) { updates.push('quantity = :quantity'); values[':quantity'] = input.quantity; }
-  if (input.unit     !== undefined) { updates.push('unit = :unit');         values[':unit']     = input.unit; }
-  if (input.notes    !== undefined) { updates.push('notes = :notes');       values[':notes']    = input.notes; }
+  if (input.name     !== undefined) { updates.push('#name = :name');         names['#name']     = 'name';     values[':name']     = input.name; }
+  if (input.category !== undefined) { updates.push('#category = :category'); names['#category'] = 'category'; values[':category'] = input.category; }
+  if (input.quantity !== undefined) { updates.push('#quantity = :quantity'); names['#quantity'] = 'quantity'; values[':quantity'] = input.quantity; }
+  if (input.unit     !== undefined) { updates.push('#unit = :unit');         names['#unit']     = 'unit';     values[':unit']     = input.unit; }
+  if (input.brand    !== undefined) { updates.push('#brand = :brand');       names['#brand']    = 'brand';    values[':brand']    = input.brand; }
+  if (input.notes    !== undefined) { updates.push('#notes = :notes');       names['#notes']    = 'notes';    values[':notes']    = input.notes; }
 
   if (updates.length === 0) return errorResponse(400, 'No fields to update');
 
@@ -98,6 +101,7 @@ async function updateItem(orgId: string, itemId: string, body: string | null | u
     TableName: TABLE_NAME,
     Key: { PK: `ORG#${orgId}`, SK: `ITEM#${itemId}` },
     UpdateExpression: `SET ${updates.join(', ')}, updatedAt = :updatedAt`,
+    ExpressionAttributeNames: names,
     ExpressionAttributeValues: values,
     ReturnValues: 'ALL_NEW',
   }));

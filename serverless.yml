@@ -2,48 +2,51 @@ service: echo-inventory
 frameworkVersion: '4'
 
 plugins:
-  - serverless-esbuild
   - serverless-offline
 
 provider:
   name: aws
   runtime: nodejs22.x
   region: us-east-1
+  profile: naeem
   environment:
     TABLE_NAME: EchoInventory
     BUCKET_NAME: echo-inventory-images-local
     MODEL_ID: amazon.nova-lite-v1:0
-    USER_POOL_ID: local-user-pool
-    USER_POOL_CLIENT_ID: local-client
+    USER_POOL_ID: us-east-1_jh4Iug2iO
+    USER_POOL_CLIENT_ID: 4n6rjfjlf2qsaj2j36r4es3l93
     IS_LOCAL: 'true'
-    # Routes all AWS SDK calls (DynamoDB, S3) to LocalStack
-    AWS_ENDPOINT_URL: http://localhost:4566
-    AWS_ACCESS_KEY_ID: test
-    AWS_SECRET_ACCESS_KEY: test
+    LOCALSTACK_ENDPOINT: http://localhost:4566
 
-custom:
+build:
   esbuild:
     bundle: true
     minify: false
     sourcemap: true
     target: node22
     platform: node
-    # Bundle all dependencies including AWS SDK v3
     exclude: []
-    watch:
-      pattern:
-        - 'functions/**/*.ts'
-        - 'functions/shared/**/*.ts'
 
+custom:
   serverless-offline:
     httpPort: 3001
     lambdaPort: 3002
     noPrependStageInUrl: true
 
 functions:
+  auth:
+    handler: functions/auth/index.handler
+    events:
+      - httpApi:
+          path: /auth/{proxy+}
+          method: ANY
+
   orgs:
     handler: functions/orgs/index.handler
     events:
+      - httpApi:
+          path: /orgs
+          method: GET
       - httpApi:
           path: /public/orgs
           method: GET

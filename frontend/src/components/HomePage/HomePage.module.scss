@@ -1,0 +1,239 @@
+.page {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  color-scheme: light;
+  color: #111;
+}
+
+// ── Nav ──────────────────────────────────────────────────────────────────────
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #ffe8d6;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #f97316;
+}
+
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navLink {
+  font-size: 0.875rem;
+  color: #374151;
+  text-decoration: none;
+  font-weight: 500;
+
+  &:hover {
+    color: #f97316;
+  }
+}
+
+.navBtn {
+  padding: 0.4rem 0.875rem;
+  background: #f97316;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover {
+    background: #ea6c08;
+  }
+}
+
+// ── Hero ─────────────────────────────────────────────────────────────────────
+
+.hero {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%);
+  padding: 5rem 1.5rem 4.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.heroEyebrow {
+  display: inline-block;
+  padding: 0.3rem 0.875rem;
+  background: #f97316;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #111;
+  max-width: 680px;
+}
+
+.heroSubtitle {
+  font-size: 1.1rem;
+  color: #6b7280;
+  line-height: 1.7;
+  max-width: 520px;
+}
+
+.heroActions {
+  display: flex;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.heroPrimary {
+  padding: 0.875rem 1.75rem;
+  background: #f97316;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);
+
+  &:hover {
+    background: #ea6c08;
+    box-shadow: 0 4px 18px rgba(249, 115, 22, 0.5);
+  }
+}
+
+.heroSecondary {
+  padding: 0.875rem 1.75rem;
+  background: #fff;
+  border: 2px solid #f97316;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f97316;
+  text-decoration: none;
+
+  &:hover {
+    background: #fff7ed;
+  }
+}
+
+// ── Features ─────────────────────────────────────────────────────────────────
+
+.features {
+  background: #fff;
+  padding: 5rem 1.5rem;
+}
+
+.featuresTitle {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  color: #111;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.featureCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: #fff7ed;
+  border: 2px solid #fed7aa;
+  border-radius: 12px;
+}
+
+.featureIcon {
+  font-size: 1.75rem;
+}
+
+.featureName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.featureDesc {
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+// ── Public CTA ───────────────────────────────────────────────────────────────
+
+.publicSection {
+  background: #f97316;
+  padding: 4.5rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.publicTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.publicSubtitle {
+  font-size: 1rem;
+  color: #ffedd5;
+}
+
+.publicBtn {
+  padding: 0.875rem 1.75rem;
+  background: #fff;
+  color: #f97316;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 0.5rem;
+
+  &:hover {
+    background: #fff7ed;
+  }
+}
+
+// ── Footer ───────────────────────────────────────────────────────────────────
+
+.footer {
+  margin-top: auto;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.footerText {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}

@@ -1,4 +1,3 @@
-import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 export interface AuthContext {
@@ -12,44 +11,39 @@ export class AuthError extends Error {
   }
 }
 
-// Verifier is created once per cold start and reuses its JWKS cache.
-// Not initialised in local mode — Cognito is not running locally.
-const verifier = process.env.IS_LOCAL !== 'true'
-  ? CognitoJwtVerifier.create({
-      userPoolId: process.env.USER_POOL_ID!,
-      clientId:   process.env.USER_POOL_CLIENT_ID!,
-      tokenUse:   'access',
-    })
-  : null;
-
 /**
- * Verifies the JWT in the Authorization header.
- * Returns AuthContext on success, null if no token is present.
- * Throws AuthError if a token is present but invalid/expired.
- */
-export async function verifyAuth(event: APIGatewayProxyEventV2): Promise<AuthContext | null> {
-  const header = event.headers?.['authorization'] ?? event.headers?.['Authorization'];
-  if (!header) return null;
-
-  // Local dev — any Authorization header is accepted; userId comes from header value
-  // e.g. Authorization: Bearer local-user-001
-  if (process.env.IS_LOCAL === 'true') {
-    const token = header.startsWith('Bearer ') ? header.slice(7) : header;
-    return { userId: token, email: `${token}@local.dev` };
-  }
-
-  const token   = header.startsWith('Bearer ') ? header.slice(7) : header;
-  const payload = await verifier!.verify(token);
-  return { userId: payload.sub, email: (payload.email as string) ?? '' };
-}
-
-/**
- * Requires a valid JWT. Throws AuthError 401 if missing or invalid.
+ * Extracts the authenticated user from the request.
+ *
+ * In production: API Gateway JWT authorizer has already validated the id_token
+ * and injected claims into event.requestContext.authorizer.jwt.claims.
+ *
+ * In local dev (serverless-offline): no JWT authorizer, so we accept any
+ * Bearer token value as the userId (set by the Next.js proxy from the id_token cookie).
  */
 export async function requireAuth(event: APIGatewayProxyEventV2): Promise<AuthContext> {
-  const ctx = await verifyAuth(event);
-  if (!ctx) throw new AuthError(401, 'Unauthorized');
-  return ctx;
+  // Production — read from JWT authorizer claims
+  const claims = (event.requestContext as any).authorizer?.jwt?.claims;
+  if (claims?.sub) {
+    return { userId: claims.sub, email: claims.email ?? '' };
+  }
+
+  // Local dev — accept any Bearer token
+  if (process.env.IS_LOCAL === 'true') {
+    const header = event.headers?.['authorization'] ?? event.headers?.['Authorization'] ?? '';
+    const token  = header.startsWith('Bearer ') ? header.slice(7) : header;
+    if (token) {
+      // Decode id_token payload if it looks like a JWT, otherwise use as raw userId
+      if (token.includes('.')) {
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+          return { userId: payload.sub ?? token, email: payload.email ?? `${token}@local.dev` };
+        } catch { /* fall through */ }
+      }
+      return { userId: token, email: `${token}@local.dev` };
+    }
+  }
+
+  throw new AuthError(401, 'Unauthorized');
 }
 
 export function errorResponse(statusCode: number, message: string) {

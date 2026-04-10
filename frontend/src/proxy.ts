@@ -2,23 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = ['/login', '/signup', '/pantry'];
 
-export function middleware(req: NextRequest) {
+export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths and anything under them
-  const isPublic =
-    PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/')) ||
+  const isStaticOrApi =
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/favicon');
 
-  if (isPublic) return NextResponse.next();
+  if (isStaticOrApi) return NextResponse.next();
 
-  // Check for Amplify session cookie (set by @aws-amplify/auth in the browser)
-  // The cookie name follows the pattern: CognitoIdentityServiceProvider.{clientId}.LastAuthUser
-  const hasSession = Array.from(req.cookies.getAll()).some(
-    c => c.name.includes('CognitoIdentityServiceProvider') || c.name.includes('amplify')
-  );
+  const hasSession = req.cookies.has('id_token');
+
+  const isPublic =
+    pathname === '/' ||
+    PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+
+  if (isPublic) return NextResponse.next();
 
   if (!hasSession) {
     const loginUrl = req.nextUrl.clone();

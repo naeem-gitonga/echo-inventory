@@ -3,11 +3,13 @@ import { BedrockRuntimeClient, ConverseCommand, ContentBlock, Tool } from '@aws-
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ulid } from 'ulid';
 import { docClient, TABLE_NAME, getMembership, QueryCommand, PutCommand, UpdateCommand } from '../shared/db';
-import { verifyAuth, AuthError, errorResponse, okResponse } from '../shared/auth';
+import { requireAuth, AuthError, errorResponse, okResponse } from '../shared/auth';
 import { ProcessImageInput, InventoryToolInput } from '../shared/types';
 
 const bedrockClient = new BedrockRuntimeClient({});
-const s3Client      = new S3Client({});
+const s3Client      = new S3Client(
+  process.env.LOCALSTACK_ENDPOINT ? { endpoint: process.env.LOCALSTACK_ENDPOINT } : {}
+);
 const MODEL_ID      = process.env.MODEL_ID!;
 const BUCKET_NAME   = process.env.BUCKET_NAME!;
 
@@ -49,8 +51,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // Auth: public route needs no token; authenticated route requires membership
     if (!isPublic) {
-      const auth = await verifyAuth(event);
-      if (!auth) return errorResponse(401, 'Unauthorized');
+      const auth = await requireAuth(event);
       const membership = await getMembership(orgId, auth.userId);
       if (!membership) return errorResponse(403, 'Forbidden');
     }
@@ -61,7 +62,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       return errorResponse(400, 'imageBase64 and mimeType are required');
     }
 
-    const result = await processImage(orgId, input);
+    const result = await processImage(orgId, input, isPublic);
     return okResponse(result);
   } catch (err) {
     if (err instanceof AuthError) return errorResponse(err.statusCode, err.message);
@@ -72,33 +73,44 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
 // ── Core image processing ─────────────────────────────────────────────────────
 
-async function processImage(orgId: string, input: ProcessImageInput) {
-  // Bedrock is not available locally — return a mock response for local dev
-  if (process.env.IS_LOCAL === 'true') {
-    return {
-      updatedItems: [],
-      createdItems: [{ itemId: ulid(), name: 'Mock Item (local)', quantity: 1 }],
-      mock: true,
-    };
-  }
-
+async function processImage(orgId: string, input: ProcessImageInput, isPublic: boolean) {
   const imageBytes = Buffer.from(input.imageBase64, 'base64');
   const format     = input.mimeType.split('/')[1] as 'jpeg' | 'png' | 'webp' | 'gif';
+
+  // Fetch current inventory so the AI can match exact item names and quantities
+  const existing = await docClient.send(new QueryCommand({
+    TableName: TABLE_NAME,
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+    ExpressionAttributeValues: { ':pk': `ORG#${orgId}`, ':sk': 'ITEM#' },
+  }));
+  const currentItems = (existing.Items ?? []).map(i =>
+    `- "${i.name}" (${i.quantity} ${i.unit}, ${i.category})`
+  ).join('\n');
+  const inventoryContext = currentItems.length
+    ? `\nCurrent inventory:\n${currentItems}\n\nAlways use the exact item name from the inventory list above when an item matches. Only create a new item if nothing in the inventory is a reasonable match.`
+    : '\nThe inventory is currently empty. Create new items for everything you identify.';
+
+  const systemPrompt = isPublic
+    ? 'You are an inventory assistant for a community pantry. A visitor is taking items from the pantry and has submitted a photo of what they are taking. ' +
+      'Use a NEGATIVE quantity_delta equal to the count of each item visible in the photo (e.g. one can = -1). ' +
+      'Never use a positive quantity_delta in this context.' + inventoryContext
+    : 'You are an inventory assistant. Analyze this image and identify all inventory items visible. ' +
+      'Use a positive quantity_delta when items are being added and a negative quantity_delta when items are being removed. ' +
+      'Call the update_inventory tool with every item you identify.' + inventoryContext;
+
+  const userPrompt = isPublic
+    ? 'I am taking these items from the pantry. Identify each item visible and subtract exactly the count shown from the inventory.'
+    : 'Identify all inventory items in this image and update the inventory.';
 
   // Call Bedrock Converse API
   const response = await bedrockClient.send(new ConverseCommand({
     modelId: MODEL_ID,
-    system: [{
-      text:
-        'You are an inventory assistant. Analyze this image and identify all inventory items visible. ' +
-        'Determine whether items are being added to or removed from inventory based on context. ' +
-        'Call the update_inventory tool with every item you identify.',
-    }],
+    system: [{ text: systemPrompt }],
     messages: [{
       role: 'user',
       content: [
         { image: { format, source: { bytes: imageBytes } } } as ContentBlock,
-        { text: 'Identify all inventory items in this image and update the inventory.' },
+        { text: userPrompt },
       ],
     }],
     toolConfig: { tools: [UPDATE_INVENTORY_TOOL] },

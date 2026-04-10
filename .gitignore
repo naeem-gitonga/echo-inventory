@@ -12,6 +12,9 @@ cdk.out/
 
 # Environment
 .env
+
+# LocalStack backup
+.localstack-backup.json
 .env.local
 .env.*.local
 

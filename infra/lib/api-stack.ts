@@ -54,6 +54,13 @@ export class ApiStack extends cdk.Stack {
 
     // ── 4 Lambda functions ────────────────────────────────────────────────────
 
+    const authFn = fn('AuthFunction', 'auth/index.ts', { timeout: cdk.Duration.seconds(15) });
+    authFn.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['cognito-idp:SignUp', 'cognito-idp:ConfirmSignUp', 'cognito-idp:InitiateAuth'],
+      resources: [userPool.userPoolArn],
+    }));
+
     // orgsLambda comes from AuthStack (it's also the Cognito post-confirmation trigger)
     const inventoryFn = fn('InventoryFunction', 'inventory/index.ts');
     const membersFn   = fn('MembersFunction',   'members/index.ts');
@@ -123,6 +130,12 @@ export class ApiStack extends cdk.Stack {
         ...(!isPublic ? { authorizer } : {}),
       });
     };
+
+    // Auth routes (no JWT authorizer — handles login/signup/refresh)
+    route(apigwv2.HttpMethod.ANY, '/auth/{proxy+}', authFn, true);
+
+    // Orgs routes
+    route(apigwv2.HttpMethod.GET, '/orgs', orgsLambda);
 
     // Public routes (no JWT authorizer at gateway level)
     route(apigwv2.HttpMethod.GET,  '/public/orgs',                 orgsLambda, true);

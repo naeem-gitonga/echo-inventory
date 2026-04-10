@@ -43,6 +43,7 @@ export interface InventoryItem {
   category: Category;
   quantity: number;
   unit: Unit;
+  brand?: string;
   notes?: string;
   imageKey?: string;    // S3 key of archived image
   aiIdentified: boolean;
@@ -68,6 +69,7 @@ export interface CreateItemInput {
   category: Category;
   quantity: number;
   unit: Unit;
+  brand?: string;
   notes?: string;
 }
 
@@ -76,6 +78,7 @@ export interface UpdateItemInput {
   category?: Category;
   quantity?: number;
   unit?: Unit;
+  brand?: string;
   notes?: string;
 }
 

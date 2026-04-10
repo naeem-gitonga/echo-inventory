@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, CognitoUserPoolTriggerEvent } from 'aws-lambda';
 import { ulid } from 'ulid';
 import { docClient, TABLE_NAME, QueryCommand, PutCommand } from '../shared/db';
-import { okResponse, errorResponse } from '../shared/auth';
+import { okResponse, errorResponse, requireAuth, AuthError } from '../shared/auth';
 
 export async function handler(
   event: APIGatewayProxyEventV2 | CognitoUserPoolTriggerEvent
@@ -15,12 +15,15 @@ export async function handler(
 
   // ── API Gateway routes ─────────────────────────────────────────────────────
   const method = event.requestContext.http.method;
-  const path   = event.rawPath;
+  // Strip stage prefix added by serverless-offline (e.g. /dev/orgs → /orgs)
+  const path = '/' + event.rawPath.split('/').slice(event.rawPath.startsWith('/dev/') ? 2 : 1).join('/');
 
   try {
     if (method === 'GET' && path === '/public/orgs') return await listOrgs();
+    if (method === 'GET' && path === '/orgs') return await listMyOrgs(event);
     return errorResponse(404, 'Not found');
   } catch (err) {
+    if (err instanceof AuthError) return errorResponse(err.statusCode, err.message);
     console.error(err);
     return errorResponse(500, 'Internal server error');
   }
@@ -78,6 +81,27 @@ async function handlePostConfirmation(event: CognitoUserPoolTriggerEvent): Promi
   ]);
 
   return event;
+}
+
+async function listMyOrgs(event: APIGatewayProxyEventV2) {
+  const auth = await requireAuth(event);
+
+  const result = await docClient.send(new QueryCommand({
+    TableName: TABLE_NAME,
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+    ExpressionAttributeValues: {
+      ':pk': `USER#${auth.userId}`,
+      ':sk': 'ORG#',
+    },
+  }));
+
+  const orgs = (result.Items ?? []).map(item => ({
+    orgId:   item.orgId,
+    orgName: item.orgName,
+    role:    item.role,
+  }));
+
+  return okResponse(orgs);
 }
 
 async function listOrgs() {

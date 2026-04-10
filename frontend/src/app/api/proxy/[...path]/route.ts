@@ -1,33 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const API_URL = process.env.API_GATEWAY_URL ?? 'http://localhost:3001';
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  path: '/',
+  sameSite: 'lax' as const,
+  secure: IS_PROD,
+};
 
 async function proxy(req: NextRequest): Promise<NextResponse> {
-  // Strip /api/proxy prefix to get the real path
   const path = req.nextUrl.pathname.replace('/api/proxy', '');
   const url  = `${API_URL}${path}${req.nextUrl.search}`;
 
   const headers = new Headers(req.headers);
   headers.delete('host');
 
+  // Inject id_token from cookie as Bearer header for protected routes
+  const idToken = req.cookies.get('id_token')?.value;
+  if (idToken) headers.set('authorization', `Bearer ${idToken}`);
+
   const body = req.method !== 'GET' && req.method !== 'HEAD'
     ? await req.arrayBuffer()
     : undefined;
 
-  const upstream = await fetch(url, {
-    method:  req.method,
-    headers,
-    body: body as BodyInit | undefined,
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method:  req.method,
+      headers,
+      body: body as BodyInit | undefined,
+    });
+  } catch (e: unknown) {
+    const isConnErr = e instanceof TypeError && /ECONNREFUSED|ECONNRESET|fetch failed/i.test((e as Error).message);
+    if (isConnErr) {
+      return NextResponse.json({ error: 'API unavailable' }, { status: 503 });
+    }
+    throw e;
+  }
+
+  // ── Auth cookie management ─────────────────────────────────────────────────
+  // The Lambda returns tokens in the JSON body; the proxy sets HttpOnly cookies.
+  // This avoids serverless-offline/Hapi cookie handling issues.
+
+  if (path === '/auth/login' && req.method === 'POST' && upstream.ok) {
+    const data = await upstream.json();
+    const res = NextResponse.json({ message: data.message }, { status: 200 });
+    res.cookies.set('id_token',      data.idToken,      { ...COOKIE_OPTS, maxAge: 3600 });
+    res.cookies.set('refresh_token', data.refreshToken, { ...COOKIE_OPTS, maxAge: 2592000 });
+    return res;
+  }
+
+  if (path === '/auth/refresh' && req.method === 'POST' && upstream.ok) {
+    const data = await upstream.json();
+    const res = NextResponse.json({ message: data.message }, { status: 200 });
+    res.cookies.set('id_token', data.idToken, { ...COOKIE_OPTS, maxAge: 3600 });
+    return res;
+  }
+
+  if (path === '/auth/logout' && req.method === 'POST') {
+    const res = NextResponse.json({ message: 'Signed out' }, { status: 200 });
+    res.cookies.set('id_token',      '', { ...COOKIE_OPTS, maxAge: 0 });
+    res.cookies.set('refresh_token', '', { ...COOKIE_OPTS, maxAge: 0 });
+    return res;
+  }
+
+  // ── Generic proxy ──────────────────────────────────────────────────────────
+
+  const nextRes = new NextResponse(upstream.body, { status: upstream.status });
+
+  upstream.headers.forEach((value, key) => {
+    const k = key.toLowerCase();
+    if (k === 'transfer-encoding') return;
+    if (k === 'content-encoding') return;
+    if (k === 'set-cookie') return;
+    nextRes.headers.set(key, value);
   });
 
-  const responseHeaders = new Headers(upstream.headers);
-  // Remove transfer-encoding — Next.js handles this itself
-  responseHeaders.delete('transfer-encoding');
-
-  return new NextResponse(upstream.body, {
-    status:  upstream.status,
-    headers: responseHeaders,
-  });
+  return nextRes;
 }
 
 export const GET     = proxy;
