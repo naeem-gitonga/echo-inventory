@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import styles from './HomePage.module.scss';
 
 export default function HomePage(): React.JSX.Element {
   const {
-    page, nav, navBrand, navActions, navLink, navBtn,
+    page,
     hero, heroEyebrow, heroTitle, heroSubtitle, heroActions, heroPrimary, heroSecondary,
     features, featuresTitle, featureGrid, featureCard, featureIcon, featureName, featureDesc,
     publicSection, publicTitle, publicSubtitle, publicBtn,
@@ -13,17 +12,6 @@ export default function HomePage(): React.JSX.Element {
 
   return (
     <div className={page}>
-      <nav className={nav}>
-        <div className={navBrand}>
-          <Image src="/echo-inventory.webp" alt="Echo Inventory" width={28} height={28} />
-          Echo Inventory
-        </div>
-        <div className={navActions}>
-          <Link href="/login" className={navLink}>Sign in</Link>
-          <Link href="/signup" className={navBtn}>Get started</Link>
-        </div>
-      </nav>
-
       <section className={hero}>
         <p className={heroEyebrow}>Community inventory, simplified</p>
         <h1 className={heroTitle}>Know what&apos;s in your pantry — always</h1>
@@ -79,6 +67,7 @@ export default function HomePage(): React.JSX.Element {
 
       <footer className={footer}>
         <p className={footerText}>Echo Inventory — built for communities</p>
+        <p className={footerText}>by Group 8 with <Link href="https://naeemgitonga.com/fromWebsite=echo-inventory">GTNG, Inc.</Link></p>
       </footer>
     </div>
   );

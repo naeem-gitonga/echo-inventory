@@ -100,6 +100,7 @@ export interface ProcessImageResult {
 
 export interface InventoryToolInput {
   items: Array<{
+    item_id?: string;     // present when updating an existing item
     name: string;
     quantity_delta: number;
     unit: Unit;

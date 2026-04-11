@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+import Navbar from '@/components/Navbar/Navbar';
 
 export const metadata: Metadata = {
   title: 'Echo Inventory',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
+          <Navbar />
           {children}
         </AuthProvider>
       </body>
