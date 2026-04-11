@@ -6,15 +6,16 @@ import Navbar from '@/components/Navbar/Navbar';
 export const metadata: Metadata = {
   title: 'Echo Inventory',
   description: 'Community inventory tracking',
+  metadataBase: new URL('https://echo-inventory.vercel.app'),
   manifest: '/manifest.json',
   openGraph: {
     title: 'Echo Inventory',
     description: 'Community inventory tracking',
-    images: [{ url: '/echo-inventory.webp' }],
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/echo-inventory.webp'],
+    images: ['/og-image.png'],
   },
   appleWebApp: {
     capable: true,
