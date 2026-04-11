@@ -138,8 +138,10 @@ export class ApiStack extends cdk.Stack {
     route(apigwv2.HttpMethod.GET, '/orgs', orgsLambda);
 
     // Public routes (no JWT authorizer at gateway level)
-    route(apigwv2.HttpMethod.GET,  '/public/orgs',                 orgsLambda, true);
-    route(apigwv2.HttpMethod.POST, '/public/orgs/{orgId}/capture', imageFn,    true);
+    route(apigwv2.HttpMethod.GET,  '/public/orgs',                        orgsLambda, true);
+    route(apigwv2.HttpMethod.GET,  '/public/orgs/{orgId}',                orgsLambda, true);
+    route(apigwv2.HttpMethod.GET,  '/public/orgs/{orgId}/inventory',      orgsLambda, true);
+    route(apigwv2.HttpMethod.POST, '/public/orgs/{orgId}/capture',        imageFn,    true);
 
     // Protected routes (JWT validated at gateway + inside Lambda)
     route(apigwv2.HttpMethod.GET,    '/orgs/{orgId}/inventory',           inventoryFn);
