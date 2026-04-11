@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import styles from './HomePage.module.scss';
 
 export default function HomePage(): React.JSX.Element {
+  const { isAuthenticated } = useAuth();
   const {
     page,
     hero, heroEyebrow, heroTitle, heroSubtitle, heroActions, heroPrimary, heroSecondary,
@@ -20,7 +24,9 @@ export default function HomePage(): React.JSX.Element {
           Volunteers snap a photo of items being taken and AI handles the rest — no manual logging required.
         </p>
         <div className={heroActions}>
-          <Link href="/signup" className={heroPrimary}>Create your pantry</Link>
+          <Link href={isAuthenticated ? '/dashboard' : '/signup'} className={heroPrimary}>
+            {isAuthenticated ? 'View your pantry' : 'Create your pantry'}
+          </Link>
           <Link href="/pantry" className={heroSecondary}>Browse pantries</Link>
         </div>
       </section>
