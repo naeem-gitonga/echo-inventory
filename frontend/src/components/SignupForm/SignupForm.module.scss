@@ -46,7 +46,14 @@
   color: #111;
 }
 
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .input {
+  flex: 1;
   padding: 0.5rem 0.75rem;
   border: 1px solid #fed7aa;
   border-radius: 6px;
@@ -55,9 +62,26 @@
   background: #fff;
   color: #111;
   outline: none;
+  width: 100%;
 
   &:focus {
     border-color: #f97316;
+  }
+}
+
+.toggleBtn {
+  position: absolute;
+  right: 0.625rem;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #9ca3af;
+  cursor: pointer;
+
+  &:hover {
+    color: #f97316;
   }
 }
 
