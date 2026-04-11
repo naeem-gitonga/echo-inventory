@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, InventoryItem, Org } from '@/lib/api';
+import Spinner from '@/components/Spinner/Spinner';
 import styles from './PublicPantryView.module.scss';
 
 interface Props { orgId: string; }
@@ -28,7 +29,7 @@ export default function PublicPantryView({ orgId }: Props): React.JSX.Element {
       .finally(() => setLoading(false));
   }, [orgId]);
 
-  if (loading) return <div className={center}>Loading…</div>;
+  if (loading) return <Spinner />;
 
   return (
     <div className={page}>

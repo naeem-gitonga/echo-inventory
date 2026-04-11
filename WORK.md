@@ -131,6 +131,39 @@ The goal is a deployed, working application where:
 
 ---
 
+## 2026-04-10 / Session 3
+
+### Bug Fixes
+
+- **Public capture adding instead of deducting** — the anonymous pantry flow was calling Bedrock without forcing negative deltas. Fixed by clamping `quantity_delta` to `-Math.abs(quantity_delta)` for public captures so taking items always deducts.
+- **Public capture creating new items** — when the AI returned an unmatched item name the Lambda was creating a new inventory record. Public captures should never create items, only update existing ones. Fixed with an `!isPublic` guard around the item-creation branch.
+- **S3 archive failing on LocalStack** — S3 client was missing `forcePathStyle: true`, which LocalStack requires. Fixed by adding it to the client constructor.
+- **LLM item matching failing (string mismatch)** — the AI was returning item names like `"Pinto Beans"` but the database had `"pinto  beans"` (double space). String normalization was attempted and rejected multiple times. Root fix: pass each item's `itemId` alongside its data in the inventory context, instruct the LLM to return `item_id` in its tool call, and do a direct `Map.get(item_id)` lookup — no string comparison at all. Immune to spacing, capitalization, and naming variations.
+- **`Cannot find name 'console'` in functions** — functions `tsconfig.json` was missing node types. Fixed by adding `"types": ["node", "aws-lambda"]`.
+- **Redundant sign out button** — Dashboard had its own Sign Out button alongside the new Navbar. Removed the Dashboard button.
+- **`adapterFn is not a function` (Turbopack)** — stale Turbopack cache caused this error on all pages after adding SCSS module with `@keyframes`. Fixed by clearing `.next` and restarting dev server. Moved Spinner styles to `globals.css` to avoid Turbopack `@keyframes` issues in SCSS modules going forward.
+- **Invited member org name missing** — the reverse-lookup DynamoDB record written during `addMember` was missing `orgName`, so invited users saw a blank org name on the dashboard. Fixed by fetching the org metadata record and including `orgName` in the write.
+- **Invite emails not delivered** — Cognito UserPool had no `invitationMessageTemplate`, so outgoing invite emails used Cognito's generic default subject which spam filters aggressively catch. Added a branded invitation template with a clear subject and sign-in link.
+
+### Features
+
+- **Public pantry view** — unauthenticated users can now click a pantry from the org picker and see all available items (name, category, quantity/unit) before deciding what to take. Implemented in `PublicPantryView` component with parallel fetch of org metadata and inventory. Sticky "Log what you're taking" CTA links to the capture page.
+- **Global Navbar** — app branding ("Echo Inventory" + logo) now appears in a persistent header across all pages via `src/app/layout.tsx`. The logo links to `/` always. Sign In / Get Started buttons only show on the homepage when unauthenticated. Sign Out button shows whenever the user is signed in.
+- **Auth-aware homepage CTA** — the "Create your pantry" button switches to "View your pantry" and links to `/dashboard` when the user is already signed in.
+- **"Are you a pantry manager?" hint hidden when signed in** — the sign-in nudge on the PantryPicker page is now gated behind `!isAuthenticated`.
+- **Password visibility toggle** — signup form password input now has an SVG eye / eye-off icon button inside the input that toggles between `type="password"` and `type="text"`.
+- **Spinners on all page loads** — `Spinner` component (`spinner-center` + `spinner` CSS classes in `globals.css`) is used as the loading fallback on Dashboard, PublicPantryView, PantryPicker, and Members pages.
+- **Team management discoverable** — Dashboard now shows a "Team" section with a card-style "Manage team members →" link (visible to owners only) so the members page can be reached without knowing the URL.
+- **Member invite email template** — CDK `AuthStack` updated with `userInvitation` template: clear subject ("You've been invited to Echo Inventory"), branded body with temp password and sign-in link.
+
+### Architecture Notes
+
+- LLM item matching now passes `id: itemId` for every item in the inventory context and instructs the model to return `item_id` in the tool call. The Lambda builds a `Map<itemId, item>` and does a direct lookup — no fuzzy matching or normalization anywhere in the codebase.
+- `Spinner` styles live in `globals.css` (not a SCSS module) to avoid Turbopack stale-cache issues with `@keyframes` during development.
+- Cognito's built-in mailer is used for invite emails (no SES). The `AdminCreateUser` call uses `DesiredDeliveryMediums: ['EMAIL']`; the `userInvitation` template in the CDK controls the subject and body.
+
+---
+
 ## Pickup Point (Next Session)
 
 **Start here:** write the frontend pages in this order:

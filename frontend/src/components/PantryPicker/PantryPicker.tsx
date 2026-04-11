@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Org } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import Spinner from '@/components/Spinner/Spinner';
 import styles from './PantryPicker.module.scss';
 
 export default function PantryPicker(): React.JSX.Element {
@@ -21,7 +22,7 @@ export default function PantryPicker(): React.JSX.Element {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className={center}>Loading…</div>;
+  if (loading) return <Spinner />;
 
   return (
     <div className={page}>

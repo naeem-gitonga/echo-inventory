@@ -92,7 +92,7 @@ export class ApiStack extends cdk.Stack {
 
     membersFn.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: ['cognito-idp:AdminCreateUser'],
+      actions: ['cognito-idp:AdminCreateUser', 'cognito-idp:AdminDeleteUser'],
       resources: [userPool.userPoolArn],
     }));
 

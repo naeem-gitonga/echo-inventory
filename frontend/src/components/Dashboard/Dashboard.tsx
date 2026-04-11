@@ -1,22 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, UserOrg, InventoryItem } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
+import Spinner from '@/components/Spinner/Spinner';
 import styles from './Dashboard.module.scss';
 
 export default function Dashboard(): React.JSX.Element {
   const {
-    page, header, headerLeft, orgName, role, signOutBtn,
+    page, header, headerLeft, orgName, role,
     main, statsRow, statCard, statValue, statLabel,
-    actionsRow, actionBtn, section, sectionTitle,
+    actionsRow, actionBtn, section, sectionTitle, teamBtn,
     itemList, itemRow, itemName, itemQty, center, error,
   } = styles;
-
-  const router = useRouter();
-  const { signOut } = useAuth();
   const [org, setOrg] = useState<UserOrg | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
@@ -42,12 +38,7 @@ export default function Dashboard(): React.JSX.Element {
     load();
   }, []);
 
-  async function handleSignOut() {
-    await signOut();
-    router.push('/');
-  }
-
-  if (loading) return <div className={center}>Loading…</div>;
+  if (loading) return <Spinner />;
   if (errorMsg) return <div className={center}><p className={error}>{errorMsg}</p></div>;
 
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -62,7 +53,6 @@ export default function Dashboard(): React.JSX.Element {
           <h1 className={orgName}>{org?.orgName}</h1>
           <p className={role}>{org?.role === 'owner' ? 'Owner' : 'Member'}</p>
         </div>
-        <button onClick={handleSignOut} className={signOutBtn}>Sign out</button>
       </header>
 
       <main className={main}>
@@ -81,10 +71,14 @@ export default function Dashboard(): React.JSX.Element {
           <Link href="/inventory" className={actionBtn}>View inventory</Link>
           <Link href="/inventory/add" className={actionBtn}>Add item</Link>
           <Link href="/inventory/capture" className={actionBtn}>AI capture</Link>
-          {org?.role === 'owner' && (
-            <Link href="/members" className={actionBtn}>Manage members</Link>
-          )}
         </div>
+
+        {org?.role === 'owner' && (
+          <section className={section}>
+            <h2 className={sectionTitle}>Team</h2>
+            <Link href="/members" className={teamBtn}>Manage team members →</Link>
+          </section>
+        )}
 
         {recentItems.length > 0 && (
           <section className={section}>

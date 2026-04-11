@@ -100,6 +100,25 @@
   }
 }
 
+.teamBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border: 2px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #111;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+
+  &:hover {
+    border-color: #f97316;
+    background: #ffedd5;
+  }
+}
+
 .section {
   display: flex;
   flex-direction: column;

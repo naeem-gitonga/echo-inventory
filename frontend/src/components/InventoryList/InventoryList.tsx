@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, InventoryItem, UserOrg } from '@/lib/api';
+import Spinner from '@/components/Spinner/Spinner';
 import styles from './InventoryList.module.scss';
 
 export default function InventoryList(): React.JSX.Element {
@@ -47,7 +48,7 @@ export default function InventoryList(): React.JSX.Element {
     }
   }
 
-  if (loading) return <div className={center}>Loading…</div>;
+  if (loading) return <Spinner />;
 
   return (
     <div className={page}>
