@@ -1,6 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminCreateUserCommandInput } from '@aws-sdk/client-cognito-identity-provider';
-import { docClient, TABLE_NAME, getMembership, QueryCommand, PutCommand, DeleteCommand } from '../shared/db';
+import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminCreateUserCommandInput, AdminDeleteUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { docClient, TABLE_NAME, getMembership, GetCommand, QueryCommand, PutCommand, DeleteCommand } from '../shared/db';
 import { requireAuth, AuthError, errorResponse, okResponse } from '../shared/auth';
 import { AddMemberInput } from '../shared/types';
 
@@ -53,6 +53,24 @@ async function listMembers(orgId: string) {
   return okResponse(members);
 }
 
+function generateTempPassword(): string {
+  const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower  = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const all    = upper + lower + digits;
+  const arr    = Array.from({ length: 12 }, (_, i) => {
+    if (i === 0) return upper[Math.floor(Math.random() * upper.length)];
+    if (i === 1) return digits[Math.floor(Math.random() * digits.length)];
+    return all[Math.floor(Math.random() * all.length)];
+  });
+  // shuffle
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+
 async function addMember(orgId: string, callerId: string, callerRole: string, body: string | null | undefined) {
   if (callerRole !== 'owner') return errorResponse(403, 'Only org owners can add members');
   if (!body) return errorResponse(400, 'Missing request body');
@@ -60,10 +78,13 @@ async function addMember(orgId: string, callerId: string, callerRole: string, bo
   const input = JSON.parse(body) as AddMemberInput;
   if (!input.email) return errorResponse(400, 'email is required');
 
-  // Create user in Cognito — sends temp password email automatically
+  const tempPassword = generateTempPassword();
+
+  // Create user in Cognito — sends invitation email with temp password
   const params: AdminCreateUserCommandInput = {
     UserPoolId: USER_POOL_ID,
     Username:   input.email,
+    TemporaryPassword: tempPassword,
     UserAttributes: [{ Name: 'email', Value: input.email }, { Name: 'email_verified', Value: 'true' }],
     DesiredDeliveryMediums: ['EMAIL'],
   };
@@ -72,6 +93,12 @@ async function addMember(orgId: string, callerId: string, callerRole: string, bo
   const newUserId = cognitoResult.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
   if (!newUserId) return errorResponse(500, 'Failed to create user');
 
+  // Fetch org name so the invited member's reverse-lookup record is complete
+  const orgMeta = await docClient.send(new GetCommand({
+    TableName: TABLE_NAME,
+    Key: { PK: `ORG#${orgId}`, SK: 'METADATA' },
+  }));
+  const orgName = orgMeta.Item?.orgName ?? '';
   const now = new Date().toISOString();
 
   await Promise.all([
@@ -93,12 +120,14 @@ async function addMember(orgId: string, callerId: string, callerRole: string, bo
         PK: `USER#${newUserId}`,
         SK: `ORG#${orgId}`,
         orgId,
+        orgName,
         role: 'member',
       },
     })),
   ]);
 
-  return okResponse({ userId: newUserId, email: input.email, role: 'member' }, 201);
+  // Return tempPassword so the UI can display it as a fallback if email doesn't arrive
+  return okResponse({ userId: newUserId, email: input.email, role: 'member', addedAt: now, tempPassword }, 201);
 }
 
 async function removeMember(orgId: string, callerId: string, callerRole: string, targetUserId: string) {
@@ -109,6 +138,8 @@ async function removeMember(orgId: string, callerId: string, callerRole: string,
   if (!membership) return errorResponse(404, 'Member not found');
   if (membership.role === 'owner') return errorResponse(400, 'Cannot remove the org owner');
 
+  const email = membership.email as string;
+
   await Promise.all([
     docClient.send(new DeleteCommand({
       TableName: TABLE_NAME,
@@ -117,6 +148,10 @@ async function removeMember(orgId: string, callerId: string, callerRole: string,
     docClient.send(new DeleteCommand({
       TableName: TABLE_NAME,
       Key: { PK: `USER#${targetUserId}`, SK: `ORG#${orgId}` },
+    })),
+    cognitoClient.send(new AdminDeleteUserCommand({
+      UserPoolId: USER_POOL_ID,
+      Username: email,
     })),
   ]);
 

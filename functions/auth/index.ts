@@ -6,6 +6,7 @@ import {
   SignUpCommand,
   ConfirmSignUpCommand,
   InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
   NotAuthorizedException,
   UsernameExistsException,
   CodeMismatchException,
@@ -132,9 +133,24 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         AuthFlow: 'USER_PASSWORD_AUTH',
         AuthParameters: { USERNAME: email, PASSWORD: password },
       }));
+      if (res.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+        return ok({ challenge: 'NEW_PASSWORD_REQUIRED', session: res.Session });
+      }
       const { IdToken, RefreshToken } = res.AuthenticationResult!;
-      // Tokens returned in body — proxy sets HttpOnly cookies (avoids serverless-offline cookie issues)
       return ok({ message: 'Signed in', idToken: IdToken!, refreshToken: RefreshToken! });
+    }
+
+    // ── POST /auth/set-password ───────────────────────────────────────────────
+    if (method === 'POST' && path === '/auth/set-password') {
+      const { email, newPassword, session } = body;
+      const res = await cognito.send(new RespondToAuthChallengeCommand({
+        ClientId: CLIENT_ID,
+        ChallengeName: 'NEW_PASSWORD_REQUIRED',
+        Session: session,
+        ChallengeResponses: { USERNAME: email, NEW_PASSWORD: newPassword },
+      }));
+      const { IdToken, RefreshToken } = res.AuthenticationResult!;
+      return ok({ message: 'Password set', idToken: IdToken!, refreshToken: RefreshToken! });
     }
 
     // ── POST /auth/refresh ────────────────────────────────────────────────────

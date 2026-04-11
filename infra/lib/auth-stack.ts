@@ -54,6 +54,18 @@ export class AuthStack extends cdk.Stack {
         requireSymbols: false,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      userInvitation: {
+        emailSubject: "You've been invited to Echo Inventory",
+        emailBody: `
+<p>Hi {username},</p>
+<p>You've been added to an organization on <strong>Echo Inventory</strong>.</p>
+<p>Use the details below to sign in for the first time — you'll be asked to set your own password.</p>
+<p><strong>Email:</strong> {username}<br/>
+<strong>Temporary password:</strong> {####}</p>
+<p>Sign in at: <a href="https://echo-inventory.vercel.app/login">https://echo-inventory.vercel.app/login</a></p>
+<p>— The Echo Inventory Team</p>
+        `.trim(),
+      },
       userVerification: {
         emailSubject: 'Verify your Echo Inventory account',
         emailBody: `

@@ -93,7 +93,7 @@ export interface InventoryItem {
 }
 export interface CreateItemInput { name: string; category: string; quantity: number; unit: string; brand?: string; notes?: string; }
 export interface UpdateItemInput { name?: string; category?: string; quantity?: number; unit?: string; brand?: string; notes?: string; }
-export interface Member { userId: string; email: string; role: 'owner' | 'member'; addedAt: string; }
+export interface Member { userId: string; email: string; role: 'owner' | 'member'; addedAt: string; tempPassword?: string; }
 export interface Org { orgId: string; orgName: string; createdAt: string; }
 export interface UserOrg { orgId: string; orgName: string; role: 'owner' | 'member'; }
 export interface ProcessImageResult {

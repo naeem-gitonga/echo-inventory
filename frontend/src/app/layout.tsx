@@ -7,6 +7,15 @@ export const metadata: Metadata = {
   title: 'Echo Inventory',
   description: 'Community inventory tracking',
   manifest: '/manifest.json',
+  openGraph: {
+    title: 'Echo Inventory',
+    description: 'Community inventory tracking',
+    images: [{ url: '/echo-inventory.webp' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/echo-inventory.webp'],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

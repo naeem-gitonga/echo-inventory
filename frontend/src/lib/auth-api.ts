@@ -23,8 +23,17 @@ export const signUp = (email: string, password: string, orgName: string) =>
 export const confirmSignUp = (email: string, code: string, password?: string, orgName?: string) =>
   authFetch('/auth/confirm', { method: 'POST', body: JSON.stringify({ email, code, password, orgName }) });
 
-export const signIn = (email: string, password: string): Promise<{ message: string }> =>
+export interface SignInResult {
+  message?: string;
+  challenge?: 'NEW_PASSWORD_REQUIRED';
+  session?: string;
+}
+
+export const signIn = (email: string, password: string): Promise<SignInResult> =>
   authFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+
+export const setPassword = (email: string, newPassword: string, session: string): Promise<{ message: string }> =>
+  authFetch('/auth/set-password', { method: 'POST', body: JSON.stringify({ email, newPassword, session }) });
 
 export const refresh = (): Promise<{ message: string }> =>
   authFetch('/auth/refresh', { method: 'POST' });

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, UserOrg, InventoryItem } from '@/lib/api';
+import Spinner from '@/components/Spinner/Spinner';
 import styles from './EditItemForm.module.scss';
 
 const CATEGORIES = ['Produce', 'Dairy', 'Meat', 'Grains', 'Canned', 'Frozen', 'Beverages', 'Other'];
@@ -73,7 +74,7 @@ export default function EditItemForm(): React.JSX.Element {
     }
   }
 
-  if (fetching) return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading…</div>;
+  if (fetching) return <Spinner />;
 
   return (
     <div className={page}>
