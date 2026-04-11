@@ -24,10 +24,7 @@ export default function Navbar() {
           {isAuthenticated ? (
             <button className={styles.signOutBtn} onClick={async () => { await signOut(); router.push('/'); }}>Sign out</button>
           ) : showGuestActions && (
-            <>
-              <Link href="/login" className={styles.navLink}>Sign in</Link>
-              <Link href="/signup" className={styles.navBtn}>Get started</Link>
-            </>
+            <Link href="/login" className={styles.navLink}>Sign in</Link>
           )}
         </div>
       )}
