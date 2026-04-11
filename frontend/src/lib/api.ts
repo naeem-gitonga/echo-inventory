@@ -23,6 +23,9 @@ export const api = {
     list: (orgId: string) =>
       request<InventoryItem[]>(`/orgs/${orgId}/inventory`),
 
+    listPublic: (orgId: string) =>
+      request<InventoryItem[]>(`/public/orgs/${orgId}/inventory`),
+
     create: (orgId: string, body: CreateItemInput) =>
       request<InventoryItem>(`/orgs/${orgId}/inventory`, {
         method: 'POST',
@@ -60,6 +63,9 @@ export const api = {
   orgs: {
     listPublic: () =>
       request<Org[]>('/public/orgs'),
+
+    getPublic: (orgId: string) =>
+      request<Org>(`/public/orgs/${orgId}`),
 
     listMine: () =>
       request<UserOrg[]>('/orgs'),
