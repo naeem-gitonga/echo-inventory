@@ -101,7 +101,7 @@ export class ApiStack extends cdk.Stack {
     const api = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: 'echo-inventory-api',
       corsPreflight: {
-        allowOrigins: ['http://localhost:3000'], // update with Vercel URL after deploy
+        allowOrigins: ['http://localhost:3000', 'https://echo-inventory.vercel.app'],
         allowMethods: [apigwv2.CorsHttpMethod.ANY],
         allowHeaders: ['Content-Type', 'Authorization'],
         maxAge: cdk.Duration.days(1),
