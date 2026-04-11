@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import styles from './Navbar.module.scss';
 
 export default function Navbar() {
   const { isAuthenticated, isLoading, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   const showGuestActions = !isLoading && !isAuthenticated && pathname === '/';
 
@@ -21,12 +22,9 @@ export default function Navbar() {
       {!isLoading && (
         <div className={styles.actions}>
           {isAuthenticated ? (
-            <button className={styles.signOutBtn} onClick={signOut}>Sign out</button>
+            <button className={styles.signOutBtn} onClick={async () => { await signOut(); router.push('/'); }}>Sign out</button>
           ) : showGuestActions && (
-            <>
-              <Link href="/login" className={styles.navLink}>Sign in</Link>
-              <Link href="/signup" className={styles.navBtn}>Get started</Link>
-            </>
+            <Link href="/login" className={styles.navLink}>Sign in</Link>
           )}
         </div>
       )}
