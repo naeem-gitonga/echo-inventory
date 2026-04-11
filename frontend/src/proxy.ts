@@ -8,7 +8,9 @@ export default function middleware(req: NextRequest) {
   const isStaticOrApi =
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
-    pathname.startsWith('/favicon');
+    pathname.startsWith('/favicon') ||
+    pathname === '/manifest.json' ||
+    pathname.match(/\.(webp|png|jpg|jpeg|svg|ico|gif)$/) !== null;
 
   if (isStaticOrApi) return NextResponse.next();
 
