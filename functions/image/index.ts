@@ -125,7 +125,7 @@ async function processImage(orgId: string, input: ProcessImageInput, isPublic: b
   const toolInput = toolUseBlock.toolUse.input as unknown as InventoryToolInput;
 
   // Apply updates to DynamoDB
-  const { updatedItems, createdItems } = await applyInventoryUpdates(orgId, toolInput);
+  const { updatedItems, createdItems } = await applyInventoryUpdates(orgId, toolInput, isPublic);
 
   // Archive image to S3 (best-effort)
   const imageKey = `archive/${orgId}/${ulid()}.${format}`;
@@ -139,7 +139,7 @@ async function processImage(orgId: string, input: ProcessImageInput, isPublic: b
   return { updatedItems, createdItems };
 }
 
-async function applyInventoryUpdates(orgId: string, toolInput: InventoryToolInput) {
+async function applyInventoryUpdates(orgId: string, toolInput: InventoryToolInput, isPublic: boolean) {
   // Fetch existing items for this org to match by name
   const existing = await docClient.send(new QueryCommand({
     TableName: TABLE_NAME,
@@ -157,22 +157,24 @@ async function applyInventoryUpdates(orgId: string, toolInput: InventoryToolInpu
 
   await Promise.all(
     toolInput.items.map(async ({ name, quantity_delta, unit, category }) => {
+      // Public captures are always removals — clamp any positive AI delta to negative
+      const delta = isPublic ? -Math.abs(quantity_delta) : quantity_delta;
+
       const existing = itemsByName.get(name.toLowerCase());
 
       if (existing) {
-        // Update existing item quantity
-        const newQuantity = Math.max(0, existing.quantity + quantity_delta);
+        const newQuantity = Math.max(0, existing.quantity + delta);
         await docClient.send(new UpdateCommand({
           TableName: TABLE_NAME,
           Key: { PK: `ORG#${orgId}`, SK: `ITEM#${existing.itemId}` },
           UpdateExpression: 'SET quantity = :q, updatedAt = :u',
           ExpressionAttributeValues: { ':q': newQuantity, ':u': now },
         }));
-        updatedItems.push({ itemId: existing.itemId, name, quantityDelta: quantity_delta, newQuantity });
-      } else {
-        // Create new item
-        const itemId  = ulid();
-        const quantity = Math.max(0, quantity_delta);
+        updatedItems.push({ itemId: existing.itemId, name, quantityDelta: delta, newQuantity });
+      } else if (!isPublic) {
+        // Public visitors can only take existing items — never create new inventory entries
+        const itemId   = ulid();
+        const quantity = Math.max(0, delta);
         await docClient.send(new PutCommand({
           TableName: TABLE_NAME,
           Item: {

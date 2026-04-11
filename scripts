@@ -123,6 +123,132 @@ down() {
   echo "Done."
 }
 
+nuke_prod() {
+  local PROD_TABLE="EchoInventory"
+  local PROD_USER_POOL="us-east-1_jh4Iug2iO"
+  local PROD_REGION="us-east-1"
+  local DUMP_FILE="$ROOT/.prod-backup-$(date +%Y%m%d-%H%M%S).json"
+  local AWS_PROD="AWS_PROFILE=naeem aws --region $PROD_REGION"
+
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  WARNING: This will wipe production data"
+  echo "  Table:     $PROD_TABLE"
+  echo "  User pool: $PROD_USER_POOL"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  read -r -p "Type yes to confirm: " confirm
+  [[ "$confirm" != "yes" ]] && echo "Aborted." && return 1
+
+  echo ""
+  echo "Step 1/3 — Dumping DynamoDB to $DUMP_FILE..."
+  if ! env AWS_PROFILE=naeem aws dynamodb scan \
+      --table-name "$PROD_TABLE" \
+      --region "$PROD_REGION" \
+      --output json > "$DUMP_FILE"; then
+    echo "ERROR: DynamoDB dump failed. Aborting — nothing was deleted."
+    return 1
+  fi
+  local item_count
+  item_count=$(python3 -c "import json; print(json.load(open('$DUMP_FILE'))['Count'])" 2>/dev/null)
+  echo "Dumped $item_count items."
+
+  echo ""
+  echo "Step 2/3 — Listing Cognito users..."
+  local users_json
+  if ! users_json=$(env AWS_PROFILE=naeem aws cognito-idp list-users \
+      --user-pool-id "$PROD_USER_POOL" \
+      --region "$PROD_REGION" \
+      --output json); then
+    echo "ERROR: Could not list Cognito users. Aborting — DynamoDB not touched."
+    return 1
+  fi
+  local user_count
+  user_count=$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])['Users']))" "$users_json")
+  echo "Found $user_count Cognito users."
+
+  echo ""
+  echo "Step 3/3 — Deleting all data..."
+
+  # Delete DynamoDB items
+  echo "  Clearing DynamoDB..."
+  python3 - "$DUMP_FILE" "$PROD_TABLE" "$PROD_REGION" << 'EOF'
+import json, subprocess, sys, os
+dump_file, table, region = sys.argv[1], sys.argv[2], sys.argv[3]
+env = {**os.environ, 'AWS_PROFILE': 'naeem'}
+with open(dump_file) as f:
+    items = json.load(f).get('Items', [])
+failed = 0
+for item in items:
+    pk = item['PK']['S']
+    sk = item['SK']['S']
+    result = subprocess.run([
+        'aws', 'dynamodb', 'delete-item',
+        '--table-name', table,
+        '--region', region,
+        '--key', json.dumps({'PK': {'S': pk}, 'SK': {'S': sk}})
+    ], env=env, capture_output=True)
+    if result.returncode != 0:
+        failed += 1
+print(f'Deleted {len(items) - failed}/{len(items)} DynamoDB items.{" (" + str(failed) + " failed)" if failed else ""}')
+EOF
+
+  # Delete Cognito users
+  echo "  Clearing Cognito users..."
+  python3 - "$users_json" "$PROD_USER_POOL" "$PROD_REGION" << 'EOF'
+import json, subprocess, sys, os
+users_json, pool_id, region = sys.argv[1], sys.argv[2], sys.argv[3]
+env = {**os.environ, 'AWS_PROFILE': 'naeem'}
+users = json.loads(users_json)['Users']
+failed = 0
+for user in users:
+    username = user['Username']
+    result = subprocess.run([
+        'aws', 'cognito-idp', 'admin-delete-user',
+        '--user-pool-id', pool_id,
+        '--username', username,
+        '--region', region
+    ], env=env, capture_output=True)
+    if result.returncode != 0:
+        failed += 1
+print(f'Deleted {len(users) - failed}/{len(users)} Cognito users.{" (" + str(failed) + " failed)" if failed else ""}')
+EOF
+
+  echo ""
+  echo "Done. Backup saved at: $DUMP_FILE"
+  echo "To restore DynamoDB: ./scripts restore_prod $DUMP_FILE"
+}
+
+restore_prod() {
+  local DUMP_FILE="$1"
+  local PROD_TABLE="EchoInventory"
+  local PROD_REGION="us-east-1"
+
+  [[ -z "$DUMP_FILE" ]] && echo "Usage: ./scripts restore_prod <dump-file>" && return 1
+  [[ ! -f "$DUMP_FILE" ]] && echo "File not found: $DUMP_FILE" && return 1
+
+  local count
+  count=$(python3 -c "import json; print(json.load(open('$DUMP_FILE'))['Count'])" 2>/dev/null)
+  echo "Restoring $count items to production DynamoDB from $DUMP_FILE..."
+
+  python3 - "$DUMP_FILE" "$PROD_TABLE" "$PROD_REGION" << 'EOF'
+import json, subprocess, sys, os
+dump_file, table, region = sys.argv[1], sys.argv[2], sys.argv[3]
+env = {**os.environ, 'AWS_PROFILE': 'naeem'}
+with open(dump_file) as f:
+    items = json.load(f).get('Items', [])
+failed = 0
+for item in items:
+    result = subprocess.run([
+        'aws', 'dynamodb', 'put-item',
+        '--table-name', table,
+        '--region', region,
+        '--item', json.dumps(item)
+    ], env=env, capture_output=True)
+    if result.returncode != 0:
+        failed += 1
+print(f'Restored {len(items) - failed}/{len(items)} items.{" (" + str(failed) + " failed)" if failed else ""}')
+EOF
+}
+
 frontend() {
   echo "Restarting frontend..."
   lsof -ti tcp:3000 | xargs kill -9 2>/dev/null || true
@@ -142,7 +268,7 @@ restart() {
 
 if [[ -z "$1" ]]; then
   echo "Usage: ./scripts <command>"
-  echo "Commands: start, down, seed, restart, frontend, backup, restore"
+  echo "Commands: start, down, seed, restart, frontend, backup, restore, nuke_prod, restore_prod"
   exit 1
 fi
 
