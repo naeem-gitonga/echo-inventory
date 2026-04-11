@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Org } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import styles from './PantryPicker.module.scss';
 
 export default function PantryPicker(): React.JSX.Element {
   const { page, header, title, subtitle, main, error, empty, list, orgCard, orgName, arrow, loginHint, center } = styles;
 
+  const { isAuthenticated } = useAuth();
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(true);
@@ -46,9 +48,11 @@ export default function PantryPicker(): React.JSX.Element {
           ))}
         </ul>
 
-        <p className={loginHint}>
-          Are you a pantry manager? <Link href="/login">Sign in</Link>
-        </p>
+        {!isAuthenticated && (
+          <p className={loginHint}>
+            Are you a pantry manager? <Link href="/login">Sign in</Link>
+          </p>
+        )}
       </main>
     </div>
   );

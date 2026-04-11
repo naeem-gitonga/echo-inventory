@@ -54,3 +54,20 @@
     background: #ea6c08;
   }
 }
+
+.signOutBtn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.4rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    border-color: #f97316;
+    color: #f97316;
+  }
+}
