@@ -44,8 +44,12 @@ async function proxy(req: NextRequest): Promise<NextResponse> {
   // The Lambda returns tokens in the JSON body; the proxy sets HttpOnly cookies.
   // This avoids serverless-offline/Hapi cookie handling issues.
 
-  if (path === '/auth/login' && req.method === 'POST' && upstream.ok) {
+  if ((path === '/auth/login' || path === '/auth/set-password') && req.method === 'POST' && upstream.ok) {
     const data = await upstream.json();
+    if (data.challenge) {
+      // NEW_PASSWORD_REQUIRED — no tokens yet, pass challenge through
+      return NextResponse.json(data, { status: 200 });
+    }
     const res = NextResponse.json({ message: data.message }, { status: 200 });
     res.cookies.set('id_token',      data.idToken,      { ...COOKIE_OPTS, maxAge: 3600 });
     res.cookies.set('refresh_token', data.refreshToken, { ...COOKIE_OPTS, maxAge: 2592000 });
