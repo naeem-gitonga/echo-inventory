@@ -18,19 +18,8 @@ import {
 const cognito = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 const CLIENT_ID = process.env.USER_POOL_CLIENT_ID!;
 const IS_LOCAL  = process.env.IS_LOCAL === 'true';
-const SECURE    = !IS_LOCAL;
 
 // ── Cookie helpers ─────────────────────────────────────────────────────────────
-
-function setCookie(name: string, value: string, maxAge: number): string {
-  const parts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', `Max-Age=${maxAge}`, 'HttpOnly', 'SameSite=Lax'];
-  if (SECURE) parts.push('Secure');
-  return parts.join('; ');
-}
-
-function clearCookie(name: string): string {
-  return `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`;
-}
 
 function parseCookies(header: string): Record<string, string> {
   return Object.fromEntries(
