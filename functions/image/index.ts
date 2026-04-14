@@ -1,19 +1,12 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { BedrockRuntimeClient, ConverseCommand, ContentBlock, Tool } from '@aws-sdk/client-bedrock-runtime';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ulid } from 'ulid';
 import { docClient, TABLE_NAME, getMembership, QueryCommand, PutCommand, UpdateCommand } from '../shared/db';
 import { requireAuth, AuthError, errorResponse, okResponse } from '../shared/auth';
 import { ProcessImageInput, InventoryToolInput } from '../shared/types';
 
 const bedrockClient = new BedrockRuntimeClient({});
-const s3Client      = new S3Client(
-  process.env.LOCALSTACK_ENDPOINT
-    ? { endpoint: process.env.LOCALSTACK_ENDPOINT, forcePathStyle: true }
-    : {}
-);
-const MODEL_ID  = process.env.MODEL_ID!;
-const BUCKET_NAME = process.env.BUCKET_NAME!;
+const MODEL_ID = process.env.MODEL_ID!;
 
 const UPDATE_INVENTORY_TOOL: Tool = {
   toolSpec: {
@@ -135,15 +128,6 @@ async function processImage(orgId: string, input: ProcessImageInput, isPublic: b
   // Build a map by itemId for direct lookup — no string matching needed
   const itemsById = new Map(inventoryItems.map(i => [i.itemId, i]));
   const { updatedItems, createdItems } = await applyInventoryUpdates(orgId, toolInput, isPublic, itemsById);
-
-  // Archive image to S3 (best-effort)
-  const imageKey = `archive/${orgId}/${ulid()}.${format}`;
-  await s3Client.send(new PutObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key:    imageKey,
-    Body:   imageBytes,
-    ContentType: input.mimeType,
-  })).catch(err => console.warn('S3 archive failed (non-fatal):', err));
 
   return { updatedItems, createdItems };
 }
