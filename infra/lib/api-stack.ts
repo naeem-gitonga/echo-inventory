@@ -21,13 +21,12 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
-    const { userPool, table, bucket, orgsLambda } = props;
+    const { userPool, table, orgsLambda } = props;
 
     const MODEL_ID = 'amazon.nova-lite-v1:0';
 
     const sharedEnv = {
       TABLE_NAME: table.tableName,
-      BUCKET_NAME: bucket.bucketName,
       MODEL_ID,
       USER_POOL_ID: userPool.userPoolId,
       USER_POOL_CLIENT_ID: props.userPoolClient.userPoolClientId,
@@ -73,10 +72,6 @@ export class ApiStack extends cdk.Stack {
     table.grantReadWriteData(inventoryFn);
     table.grantReadWriteData(membersFn);
     table.grantReadWriteData(imageFn);
-
-    // ── S3 permissions ────────────────────────────────────────────────────────
-
-    bucket.grantPut(imageFn, 'archive/*');
 
     // ── Bedrock permission ────────────────────────────────────────────────────
 
