@@ -24,5 +24,4 @@ new ApiStack(app, 'EchoInventoryApi', {
   userPoolClient: authStack.userPoolClient,
   orgsLambda: authStack.orgsLambda,
   table: storageStack.table,
-  bucket: storageStack.bucket,
 });

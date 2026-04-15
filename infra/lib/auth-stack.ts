@@ -26,7 +26,7 @@ export class AuthStack extends cdk.Stack {
     const postConfirmationFn = new lambdaNodejs.NodejsFunction(this, 'PostConfirmationFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
-      entry: path.join(__dirname, '..', '..', 'functions', 'orgs', 'index.ts'),
+      entry: path.join(__dirname, '..', '..', 'functions', 'post-confirmation', 'index.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
